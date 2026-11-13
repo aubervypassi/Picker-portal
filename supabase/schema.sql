@@ -83,6 +83,10 @@ begin
   end loop;
 end $$;
 
+-- Droits d'accès de l'API (nécessaires si le projet n'expose pas les tables par défaut)
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on pointages, plannings, demandes_explication, requetes, rapports_shift, parametres to anon, authenticated;
+
 -- ---------------------------------------------------------------------
 -- Connexion : vérification du PIN côté serveur. Les appareils ne peuvent
 -- pas lire la colonne `pin` (seulement l'écrire).
