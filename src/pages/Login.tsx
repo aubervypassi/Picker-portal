@@ -93,7 +93,8 @@ export default function Login() {
           <p className="text-[11px] text-gray-400 text-center">Votre code PIN vous est remis par votre Store Manager. Ne le partagez jamais.</p>
         </form>
 
-        <div className="max-w-sm mx-auto mt-6 mb-10 text-center">
+        {/* Connexion rapide : uniquement en développement local (jamais sur le site en ligne) */}
+        {import.meta.env.DEV && <div className="max-w-sm mx-auto mt-6 mb-10 text-center">
           <button onClick={() => setDemo(!demo)} className="text-xs text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">
             <Zap className="w-3 h-3" /> Connexion rapide démo
           </button>
@@ -116,7 +117,7 @@ export default function Login() {
               </button>
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );
