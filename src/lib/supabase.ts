@@ -258,7 +258,36 @@ export async function syncDiff(prev: DB, next: DB) {
     if (upserts.length) run(supabase.from(c.table).upsert(upserts), c.table);
     if (removed.length) run(supabase.from(c.table).delete().in('id', removed), c.table);
   };
-  diffColl(PICKERS, prev.users, next.users);
+  // pickers : pas d'upsert (la colonne `pin` n'est pas lisible par l'API) → INSERT pour les nouveaux, PATCH pour les modifiés
+  {
+    const before = new Map(prev.users.map((u) => [u.id, JSON.stringify(PICKERS.toRow(u))]));
+    const rows = next.users.map(PICKERS.toRow);
+    const inserts = rows.filter((r) => !before.has(r.id));
+    const updates = rows.filter((r) => before.has(r.id) && before.get(r.id) !== JSON.stringify(r));
+    const ids = new Set(rows.map((r) => r.id));
+    const removed = prev.users.filter((u) => !ids.has(u.id)).map((u) => u.id);
+    const patch = (r: Row) => {
+      const { id, ...rest } = r;
+      return supabase.from('pickers').update(rest).eq('id', id);
+    };
+    if (inserts.length)
+      ops.push(
+        Promise.resolve(supabase.from('pickers').insert(inserts)).then(async ({ error }) => {
+          if (!error) return;
+          // déjà créé ailleurs (autre appareil) : on bascule en mise à jour ligne par ligne
+          if (error.code !== '23505') throw new Error(`pickers : ${error.message}`);
+          for (const r of inserts) {
+            const ins = await supabase.from('pickers').insert(r);
+            if (ins.error && ins.error.code === '23505') {
+              const up = await patch(r);
+              if (up.error) throw new Error(`pickers : ${up.error.message}`);
+            } else if (ins.error) throw new Error(`pickers : ${ins.error.message}`);
+          }
+        }),
+      );
+    updates.forEach((r) => run(patch(r), 'pickers'));
+    if (removed.length) run(supabase.from('pickers').delete().in('id', removed), 'pickers');
+  }
   diffColl(POINTAGES, prev.punches, next.punches);
   diffColl(EXPLICATIONS, prev.explanations, next.explanations);
   diffColl(REQUETES, prev.requests, next.requests);
